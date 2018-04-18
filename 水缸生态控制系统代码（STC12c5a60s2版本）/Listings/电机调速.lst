@@ -1,0 +1,253 @@
+C51 COMPILER V9.00   电籣调速                                                              04/14/2018 10:22:03 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE 电籣调速
+OBJECT MODULE PLACED IN .\Objects\电机调速.obj
+COMPILER INVOKED BY: C:\keil\C51\BIN\C51.EXE 电机调速.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\I2C;.\SRC) DEBUG OBJECTEXTEND 
+                    -PRINT(.\Listings\电机调速.lst) TABS(2) OBJECT(.\Objects\电机调速.obj)
+
+line level    source
+
+   1          /*********************头文件定义区***************************************/
+   2          #include "reg52.h"
+   3          #include "oled.h"
+   4          #include "i2c.h"
+   5          
+   6          
+   7          /*********************define定义区***************************************/
+   8          #define K_up 1              //电机加速
+   9          #define K_down 2            //电机减速
+  10          #define K_corotation 3      //正转键值
+  11          #define K_reversal 4        //反转键值
+  12          /*********************位操作定义区***************************************/
+  13          sbit IN1=P0^2;              //电机正反转通道（上电正转）
+  14          sbit IN2=P0^1;
+  15          sbit ENA=P0^0;              //使能端
+  16          sbit Key_up=P3^2;           //电机加速
+  17          sbit Key_down=P3^3;         //电机减速
+  18          sbit Key_corotation=P3^4;   //电机正转
+  19          sbit Key_reversal=P3^5;     //电机反转
+  20          /*********************变量定义区***************************************/
+  21          int turn_flag=1;         //转动标志位（0停止，1正转，2反转，3调节速度）     
+  22          int n=300;              //调节转速开始是为满占空比
+  23          int z;                  //占空比分母
+  24          int KEY;                //读取按键键值          
+  25          int s=0;                //秒
+  26          int min=0;              //分
+  27          int hour=0;             //小时
+  28          int day=0;              //天
+  29          int led_num=0;          //计数一次1ms
+  30          /*********************函数定义区***************************************/
+  31          void led_timer();               //led点亮时间显示
+  32          void Key_Control();             //按键控制
+  33          void TimerConfiguration();      //定时器0初始化
+  34          void Int0Configuration();       //外部中断0初始化
+  35          void delay_us(int i);           //延时1us（12M）
+  36          int KeyScan(int mode);          //按键模式（0--单按  1--连按）
+  37          /*********************主函数***************************************/
+  38          void main()                  //主函数开始
+  39          {
+  40   1        OLED_Init();
+  41   1        TimerConfiguration();      //初始化定时器0
+  42   1        ENA=1;                     //上电电机开始转动
+  43   1        IN1=1;
+  44   1        IN2=0;
+  45   1        OLED_ShowString(16,0,":");         
+  46   1        OLED_ShowString(40,0,":");
+  47   1        OLED_ShowString(64,0,":");         
+  48   1        OLED_ShowString(0,0,"00");         //天
+  49   1        OLED_ShowString(24,0,"00");        //时
+  50   1        OLED_ShowString(48,0,"00");        //分
+  51   1        OLED_ShowString(72,0,"00");        //秒
+  52   1        
+  53   1        while(1)
+  54   1        {
+C51 COMPILER V9.00   电籣调速                                                              04/14/2018 10:22:03 PAGE 2   
+
+  55   2          Key_Control();          //按键控制   
+  56   2          led_timer();
+  57   2          
+  58   2          if(z<n)
+  59   2            ENA=1;
+  60   2          else  
+  61   2            ENA=0; 
+  62   2               
+  63   2        }
+  64   1      }
+  65          
+  66          /*********************定时器0初始化函数***************************************/
+  67          void TimerConfiguration()
+  68          {
+  69   1          TMOD = 0x01; //选择工作方式1
+  70   1          TH0 = 0xff;  //设置初始值
+  71   1          TL0 = 0xb0; 
+  72   1          ET0 = 1;     //打开定时器0中断
+  73   1          TR0 = 1;     //启动定时器0
+  74   1          EA = 1;      //打开总中断
+  75   1      }
+  76          
+  77          /*********************定时器0中断函数***************************************/
+  78          void Timer0() interrupt 1
+  79          {
+  80   1        
+  81   1          TH0 = 0xff;  //设置初始值
+  82   1          TL0 = 0xb0;     
+  83   1          led_num++;
+  84   1          z++;          //占空比总周期
+  85   1        if(z>300)         
+  86   1        {
+  87   2          z=0;
+  88   2        }
+  89   1      }
+  90          
+  91          
+  92          /*********************按键控制函数***************************************/
+  93          void Key_Control()   //按键控制
+  94          {
+  95   1        KEY=KeyScan(0);
+  96   1        switch(KEY)
+  97   1        {
+  98   2          case 0:
+  99   2          {
+ 100   3            
+ 101   3          
+ 102   3          }
+ 103   2          break;
+ 104   2          
+ 105   2          case 1:
+ 106   2          {
+ 107   3            turn_flag=0;     //正转标志
+ 108   3          }
+ 109   2          break;
+ 110   2          
+ 111   2          case 2:
+ 112   2          {
+ 113   3            turn_flag=1;     //反转标志
+ 114   3          }
+ 115   2          break;
+ 116   2          
+C51 COMPILER V9.00   电籣调速                                                              04/14/2018 10:22:03 PAGE 3   
+
+ 117   2          case 3:
+ 118   2          { 
+ 119   3            turn_flag=2;     //停止标志
+ 120   3          }
+ 121   2          break;
+ 122   2          
+ 123   2          case 4:
+ 124   2          { 
+ 125   3            turn_flag=3;     //转速调节标志
+ 126   3            n-=5;
+ 127   3          }
+ 128   2          break;
+ 129   2          
+ 130   2          default:
+ 131   2            break;
+ 132   2        }
+ 133   1      
+ 134   1        if(turn_flag==0)
+ 135   1        {
+ 136   2          ENA=1; 
+ 137   2          IN1=0;
+ 138   2          IN2=0;    
+ 139   2        }
+ 140   1        if(turn_flag==1)
+ 141   1        {
+ 142   2          ENA=1;
+ 143   2          IN1=1;
+ 144   2          IN2=0;            
+ 145   2        }
+ 146   1        if(turn_flag==2)   
+ 147   1        {
+ 148   2          ENA=1;
+ 149   2          IN1=0;
+ 150   2          IN2=1; 
+ 151   2        }
+ 152   1        if(n<100) 
+ 153   1        {
+ 154   2           n=300;
+ 155   2        } 
+ 156   1      }
+ 157          
+ 158          
+ 159          /*********************按键模式函数***************************************/
+ 160          int KeyScan(int mode)
+ 161          {
+ 162   1        static int Keyen=1;
+ 163   1        if(mode==1)
+ 164   1        {
+ 165   2          Keyen=1;
+ 166   2        }
+ 167   1        if(Keyen==1&&(Key_up==0||Key_down==0||Key_corotation==0||Key_reversal==0))
+ 168   1        {
+ 169   2          delay_ms(10);
+ 170   2          Keyen=0;
+ 171   2          if(Key_up==0) return K_up;
+ 172   2          else if(Key_down==0) return K_down;
+ 173   2          else if(Key_corotation==0) return K_corotation;
+ 174   2          else if(Key_reversal==0) return K_reversal;
+ 175   2        }
+ 176   1        else if(Key_up==1&&Key_down==1&&Key_corotation==1&&Key_reversal==1)
+ 177   1        {
+ 178   2          Keyen=1;
+C51 COMPILER V9.00   电籣调速                                                              04/14/2018 10:22:03 PAGE 4   
+
+ 179   2        }
+ 180   1        return 0;
+ 181   1      }
+ 182          
+ 183          
+ 184          /**********************计时函数***************************************/
+ 185          void led_timer()         //计时函数
+ 186          {
+ 187   1        if(led_num==12500)
+ 188   1        {
+ 189   2          s++;
+ 190   2          led_num=0;
+ 191   2          OLED_ShowNum(72,0,s,2,16);
+ 192   2          if(s==60)
+ 193   2          {
+ 194   3            s=0;
+ 195   3            min++;
+ 196   3            OLED_ShowNum(48,0,min,2,16);
+ 197   3            if(min==60)
+ 198   3            {
+ 199   4              min=0;
+ 200   4              hour++;
+ 201   4              OLED_ShowNum(24,0,hour,2,16);
+ 202   4              if(hour==60)
+ 203   4              {
+ 204   5                hour=0;
+ 205   5                day++;
+ 206   5                OLED_ShowNum(0,0,day,2,16);
+ 207   5                if(day==30)
+ 208   5                {
+ 209   6                  day=0;
+ 210   6                }
+ 211   5              }
+ 212   4            }
+ 213   3          }
+ 214   2        }   
+ 215   1      }
+ 216          
+ 217          
+ 218          /*********************1us延时函数***************************************/
+ 219          void delay_us(int i)  //延时函数1us（12M晶振）
+ 220          {
+ 221   1        while(i--);         //执行一次1us
+ 222   1      }
+ 223          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    599    ----
+   CONSTANT SIZE    =      5    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     20    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

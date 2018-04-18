@@ -1,0 +1,7 @@
+"STARTUP.obj",
+"main.obj",
+"oled.obj",
+"interrupt.obj",
+"i2c.obj" 
+TO "led" 
+RAMSIZE(256) 

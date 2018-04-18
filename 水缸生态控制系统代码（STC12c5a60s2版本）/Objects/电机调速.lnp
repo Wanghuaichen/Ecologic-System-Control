@@ -1,0 +1,6 @@
+".\Objects\STARTUP.obj",
+".\Objects\电机调速.obj",
+".\Objects\oled.obj",
+".\Objects\i2c.obj" 
+TO ".\Objects\电机调速" 
+PRINT(".\Listings\电机调速.m51")
